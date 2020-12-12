@@ -8,7 +8,7 @@ scikit-image
 tensorflow-gpu==1.15.2
 keras==2.2.4
 opencv-python
-h5py
+h5py==2.1.10
 imgaug
 pycocotools
 memory_profiler
