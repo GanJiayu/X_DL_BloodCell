@@ -9,6 +9,7 @@ __pycache__/
 # Model checkpoint
 *.h5
 *.jupyter-jiayu-2egan
+nohup.out
 
 # data
 *.jpg
