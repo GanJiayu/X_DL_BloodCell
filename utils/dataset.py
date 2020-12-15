@@ -16,7 +16,9 @@ class BloodCellDataset(mrcnn_utils.Dataset):
         self.verbose = verbose
         self.source = "BloodCell"
         self.class_names_preset = np.array(['BG',
-                                            'RBC'])
+                                            'RBC',
+                                            'WBC',
+                                            'Platelets'])
 
     def _get_id_of_class(self, clabel):
         if clabel not in self.class_names_preset:
@@ -72,7 +74,7 @@ class BloodCellDataset(mrcnn_utils.Dataset):
         return
 
 
-class BloodCellTestDataset(BloodCellDataset):
+class BloodCellExternalDataset(BloodCellDataset):
     """Derived class of mrcnn Dataset to handle test set images."""
 
     def __init__(self, directory_path, sample_ids, verbose=False):

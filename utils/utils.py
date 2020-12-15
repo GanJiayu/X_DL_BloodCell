@@ -24,6 +24,11 @@ import xml.etree.ElementTree as ET
 def get_image_local_path(sample_id: str, directory_path: str) -> str:
     return os.path.join(directory_path, "JPEGImages", sample_id + '.jpg')
 
+def get_image_local_path_B(sample_id: str, directory_path: str) -> str:
+    return os.path.join(directory_path, "Dataset_2", sample_id + '.bmp')
+
+def get_mask_local_path_B(sample_id: str, directory_path: str) -> str:
+    return os.path.join(directory_path, "Dataset_2", sample_id + '.png')
 
 def get_xml_local_path(sample_id: str, directory_path: str) -> str:
     return os.path.join(directory_path, "Annotations", sample_id + '.xml')
@@ -196,15 +201,6 @@ def visualize_sample(sample_id: str, directory_path: str) -> None:
                     facecolor="none", edgecolor=colors[i], alpha=0.7, linestyle="dashed", 
                     linewidth=5, fill=False)
         ax.add_patch(p)
-        """if instance["geometryType"] == "rectangle":
-            y1, x1, y2, x2 = instance["points"]["exterior"][0][1], \
-                             instance["points"]["exterior"][0][0], \
-                             instance["points"]["exterior"][1][1], \
-                             instance["points"]["exterior"][1][0]
-            p = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=2,
-                                  alpha=0.7, linestyle="dashed",
-                                  edgecolor=colors[i], facecolor='none')
-            ax.add_patch(p)"""
 
         # Label
         ax.text(cnt[0,0] + 16, cnt[0,1] + 16, class_name,
@@ -316,6 +312,14 @@ def draw_rectangle(mask, bbox):
     cv2.drawContours(mask, [contour], -1, (255), -1)
     return mask
 
+def draw_rectangle2(mask, bbox):
+    """Helper function for rendering."""
+    x1, y1, x2, y2 = bbox[1], bbox[0], bbox[3], bbox[2]
+    contour = [[x1, y1], [x1, y2], [x2, y2], [x2, y1]]
+    contour = np.array(contour, dtype=np.int32)
+    cv2.drawContours(mask, [contour], -1, (255), -1)
+    return mask
+
 
 def draw_polygon(mask, contour):
     """Helper function for rendering."""
@@ -330,7 +334,9 @@ def load_xml(annotation_path):
     for elem in tree.iter():
         if 'filename' in elem.tag:
             # double check
-            assert elem.text in annotation_path
+            # assert elem.text in annotation_path
+            # No double checking due to transiting to new dataset format
+            pass
         if 'size' in elem.tag:
             for attr in list(elem):
                 if 'width' in attr.tag:
@@ -373,3 +379,10 @@ def convert_annotations(annotations, image_shape):
     masks = np.stack(masks, axis=2)
     return masks.astype(np.uint8), class_names
 
+def convert_bbox_to_masks(bbox, mask_shape):
+    masks = []
+    for b in bbox:
+        mask = np.zeros(mask_shape, dtype=np.int8)
+        mask = draw_rectangle2(mask, b)
+        masks.append(mask)
+    return np.stack(masks, axis=2).astype(np.uint8)
