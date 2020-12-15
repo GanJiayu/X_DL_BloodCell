@@ -1,3 +1,0 @@
-TensorBoard 1.15.0 at http://instance-jiayu:6006/ (Press CTRL+C to quit)
-W1212 19:42:05.497876 140503265351424 plugin_event_accumulator.py:294] Found more than one graph event per run, or there was a metagraph containing a graph_def, as well as one or more graph events.  Overwriting the graph with the newest event.
-W1212 19:46:11.251328 140503265351424 plugin_event_accumulator.py:302] Found more than one metagraph event per run. Overwriting the metagraph with the newest event.

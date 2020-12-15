@@ -53,125 +53,6 @@ def filter_resuLt_by_score(result: dict, thres: float = 0.9) -> dict:
     return fitered_result
 
 
-def retrieve_inference_to_json(model: MaskRCNN, ds,
-                               image_id: str, json_dir: str) -> None:
-    """Retrieve inference result from the model the store in json file."""
-    # Load image from dataset
-    original_image = ds.load_image(image_id)
-    _, window, scale, padding, _ = resize_image(original_image, mode="pad64")
-    # No rescaling applied
-    assert scale == 1
-
-    # Retrieve predictions
-    height, width = original_image.shape[:2]
-    result = model.detect([original_image], verbose=0)[0]
-    filtered_result = filter_resuLt_by_score(result, 0.9)
-
-    # Dict object to dump to json
-    dump = {}
-    dump["image"] = {
-        "file_name": 'img/' + ds.image_info[image_id]['id'] + '.jpg',
-        "id": int(image_id),
-        "height": int(height),
-        "width": int(width),
-    }
-
-    dump["annotations"] = []
-
-    assert filtered_result['rois'].shape[0] == \
-           filtered_result['masks'].shape[-1] == \
-           filtered_result['class_ids'].shape[0]
-
-    # Encoding annotations into json
-    for obj_id in range(filtered_result['rois'].shape[0]):
-        roi = filtered_result['rois'][obj_id, :]
-        mask = filtered_result['masks'][..., obj_id]
-        class_id = filtered_result['class_ids'][obj_id]
-        y1, x1, y2, x2 = int(roi[0]), int(roi[1]), int(roi[2]), int(roi[3])
-        contours, _ = cv2.findContours(mask.astype(np.uint8),
-                                       cv2.RETR_EXTERNAL,
-                                       cv2.CHAIN_APPROX_SIMPLE)
-        cnt = contours[0]
-        polygon = []
-
-        # 1d flatten list of [x, y] coordinates
-        for pt_id in range(cnt.shape[0]):
-            polygon.append(int(cnt[pt_id, 0, 0]))
-            polygon.append(int(cnt[pt_id, 0, 1]))
-
-        obj = {'id': int(obj_id),
-               'segmentation': [polygon],
-               'area': float(cv2.contourArea(cnt)),
-               # x, y, h, w
-               'bbox': [x1, y1, x2 - x1, y2 - y1],
-               'image_id': int(image_id),
-               'category_id': int(class_id),
-               'iscrowd': 0}
-        dump["annotations"].append(obj)
-
-    json_path = get_inference_result_path(ds.image_info[image_id]['id'],
-                                          json_dir)
-
-    with open(json_path, 'w') as f:
-        json.dump(dump, f)
-    return
-
-
-def visualize_inference_sample(sample_id: str,
-                               class_names: list,
-                               image_dir: str,
-                               json_dir: str,
-                               render_dir: str) -> None:
-    """Load inference result json file and render overlay on raw image."""
-    image_path = get_image_local_path(sample_id, image_dir)
-    json_path = get_inference_result_path(sample_id, json_dir)
-    render_path = os.path.join(render_dir, sample_id + '.jpg')
-
-    image = cv2.imread(image_path)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-    with open(json_path, 'r') as f:
-        data = json.load(f)
-
-    assert image.shape[0] == data["image"]["height"]
-    assert image.shape[1] == data["image"]["width"]
-
-    fig, ax = plt.subplots(1, figsize=(20,20))
-    colors = random_colors(len(data["annotations"]))
-    height, width = image.shape[:2]
-
-    ax.set_ylim(height + 10, -10)
-    ax.set_xlim(-10, width + 10)
-    ax.axis('off')
-    ax.set_title(f"Sample_id: {sample_id}, shape {image.shape}")
-
-    masked_image = image.astype(np.uint32).copy()
-
-    for i, instance in enumerate(data["annotations"]):
-        x, y, w, h = instance["bbox"]
-        p = patches.Rectangle((x, y), w, h, linewidth=2,
-                              alpha=0.7, linestyle="dashed",
-                              edgecolor=colors[i], facecolor='none')
-        ax.add_patch(p)
-
-        polygon = instance["segmentation"][0]
-        polygon = np.array(polygon).reshape(-1, 2)
-
-        p = Polygon(polygon, facecolor="none", edgecolor=colors[i],
-                    linewidth=None, fill=True)
-        p.set_fill(True)
-        ax.add_patch(p)
-
-        # Label
-        ax.text(x, y + 8, class_names[instance["category_id"]],
-                color='w', size=11, backgroundcolor="none")
-
-    ax.imshow(masked_image.astype(np.uint8))
-    plt.savefig(render_path)
-    plt.close(fig)
-    return
-
-
 # ===============================
 # EXPOLORE DATA
 # ===============================
@@ -209,6 +90,40 @@ def visualize_sample(sample_id: str, directory_path: str) -> None:
     ax.imshow(masked_image.astype(np.uint8))
     plt.show()
     return
+
+def visualize_sample_B(df: pd.DataFrame, sample_id: str, IMAGE_DIR: str) -> None:
+    WBC_types = df[df["sample_id"] == sample_id].WBC_types.iloc[0]
+    print(sample_id, WBC_types)
+    image = read_image(get_image_local_path_B(sample_id, IMAGE_DIR))
+    mask = read_image(get_mask_local_path_B(sample_id, IMAGE_DIR))
+    masks = mask[..., 0:1]
+    class_names = WBC_types
+    _, ax = plt.subplots(1, figsize=(20, 20))
+    colors = random_colors(len(class_names))
+    height, width = image.shape[:2]
+    ax.set_ylim(height + 10, -10)
+    ax.set_xlim(-10, width + 10)
+    ax.axis('off')
+    ax.set_title(f"Sample_id: {sample_id}, shape {image.shape}, WBC type {WBC_types}")
+    print(image.shape, masks.shape)
+    masked_image = image.astype(np.uint32).copy()
+    
+    for i, class_name in enumerate(class_names):
+        mask = masks[..., i]
+        ret, thresh = cv2.threshold(mask.astype(np.uint8), 1, 255, 0)
+        cnt, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        cnt = np.squeeze(cnt[0], axis=1)
+        p = Polygon(cnt,
+                    facecolor="none", edgecolor=colors[i], alpha=0.7, linestyle="dashed", 
+                    linewidth=5, fill=False)
+        ax.add_patch(p)
+
+        # Label
+        ax.text(cnt[0,0] + 16, cnt[0,1] + 16, class_name,
+                color=colors[i], size=20, backgroundcolor="none")
+
+    ax.imshow(masked_image.astype(np.uint8))
+    plt.show()
 
 # ===============================
 # EVALUATION FUNCTIONS
@@ -276,7 +191,11 @@ def get_object_matches(result: dict,
 # ===============================
 # MISCELLANEOUS FUNCTIONS
 # ===============================
-
+def correct_class_label(label, WBC_type):
+    if label == "WBC":
+        if len(WBC_type) == 1:
+            return WBC_type[0]
+    return label
 
 def read_imageio(image_path: str):
     """Load image by imageio library."""
