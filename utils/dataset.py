@@ -88,7 +88,7 @@ class BloodCellDatasetFromDataFrame(mrcnn_utils.Dataset):
         self.origin = ["A", "B"]
         self.class_names_preset = np.array(['BG',
                                             'RBC',
-                                            'WBC',
+                                            'WBC', # deprecated
                                             'Platelets',
                                             "neutrophil".upper(),
                                             "lymphocyte".upper(),

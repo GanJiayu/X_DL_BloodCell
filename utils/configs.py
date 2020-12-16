@@ -77,7 +77,7 @@ class BloodCellConfig_B(Config):
         "rpn_bbox_loss": 0.0,
         "mrcnn_class_loss": 0.0,
         "mrcnn_bbox_loss": 0.0,
-        "mrcnn_mask_loss": 1.,
+        "mrcnn_mask_loss": 1.0,
     }
 
     # Use smaller anchors because our image and objects are small

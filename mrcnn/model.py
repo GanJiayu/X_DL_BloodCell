@@ -1161,13 +1161,18 @@ def mrcnn_mask_loss_graph(target_masks, target_class_ids, pred_masks):
 
     # Only positive ROIs contribute to the loss. And only
     # the class specific mask of each ROI.
-    positive_ix = tf.where(target_class_ids > 0)[:, 0]
+
+    # Only take mask from WBC
+    positive_ix = tf.where(target_class_ids > 3)[:, 0]
+
     positive_class_ids = tf.cast(
         tf.gather(target_class_ids, positive_ix), tf.int64)
+
     indices = tf.stack([positive_ix, positive_class_ids], axis=1)
 
     # Gather the masks (predicted and true) that contribute to loss
     y_true = tf.gather(target_masks, positive_ix)
+
     y_pred = tf.gather_nd(pred_masks, indices)
 
     # Compute binary cross entropy. If no positive ROIs, then return 0.
@@ -2341,7 +2346,7 @@ class MaskRCNN():
             keras.callbacks.TensorBoard(log_dir=self.log_dir,
                                         histogram_freq=0, write_graph=True, write_images=False),
             keras.callbacks.ModelCheckpoint(self.checkpoint_path,
-                                            verbose=0, save_weights_only=True),
+                                            verbose=0, save_weights_only=True, period=5),
         ]
 
         # Add custom callbacks to the list
@@ -2362,7 +2367,7 @@ class MaskRCNN():
         else:
             workers = multiprocessing.cpu_count()
 
-        workers = workers if workers <= 2 else 2
+        workers = workers
         use_multiprocessing = True
         print(f"Multiprocessing? {use_multiprocessing}, number of workers {workers}")
 
@@ -2379,6 +2384,7 @@ class MaskRCNN():
             use_multiprocessing=use_multiprocessing,
         )
         self.epoch = max(self.epoch, epochs)
+        return self.checkpoint_path, self.epoch
 
     def mold_inputs(self, images):
         """Takes a list of images and modifies them to the format expected
